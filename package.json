@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "node express endpoint to authenticate with aaf rapid connect",
   "main": "index.js",
+  "repository": "https://github.com/spikelynch/express-aaf",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "express": "^4.17.1",
     "jwt-simple": "^0.5.6",
