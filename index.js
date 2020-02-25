@@ -1,13 +1,24 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const jwt = require('jwt-simple');
 const app = express();
 const port = 8080;
 
 const config = require('./config.json');
 
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+
 function check_jwt(aafjwt) {
 
-	if( aafjwt['iss'] !== config['iss'] || aafjwt['aud'] !== config['aud'] ) {
+	if( aafjwt['iss'] !== config['iss'] ) {
+		console.log(`iss ${aafjwt['iss']} mismatch with ${config['iss']}`);
+		return false;
+	}
+
+	if( aafjwt['aud'] !== config['aud'] ) {
+		console.log(`aud ${aafjwt['aud']} mismatch with ${config['aud']}`);
 		return false;
 	}
 
@@ -15,8 +26,12 @@ function check_jwt(aafjwt) {
 	const exp = new Date(aafjwt['exp']);
 	const now = new Date();
 
-	return ( now > nbf && now < exp );
+	if( !! ( now > nbf && now < exp ) ) {
+		console.log(`Time assertion fail ${nbf} > ${now} > ${exp}`);
+		return false;
+	}
 
+	return true;
 }
 
 
@@ -29,9 +44,9 @@ app.get('/', (req, res) => {
 app.get('/no', (req, res) => res.sendStatus(403) )
 
 app.post('/jwt', (req, res) => {
-	console.log(JSON.stringify(req.params));
-	const aafjwt = jwt.decode(req.params['assertion'], config['secret']);
 
+	const aafjwt = jwt.decode(req.body['assertion'], config['secret']);
+	console.log(JSON.stringify(aafjwt, null, 8))
 	if( check_jwt(aafjwt) ) {
 		res.send('AAF authentication worked');
 	} else {
