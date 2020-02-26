@@ -1,29 +1,35 @@
 const express = require('express');
+const session = require('cookie-session');
 const bodyParser = require('body-parser');
 const jwt = require('jwt-simple');
 const app = express();
-const port = 8080;
 
 const config = require('./config.json');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.set('trust proxy', 1);
 
-function check_jwt(aafjwt) {
+app.use(session({
+	name: config['sessionName'],
+	keys: [ 'uid', 'displayName', 'affiliation' ]
+}));
 
-	if( aafjwt['iss'] !== config['iss'] ) {
-		console.log(`iss ${aafjwt['iss']} mismatch with ${config['iss']}`);
+function check_jwt(authjwt) {
+
+	if( authjwt['iss'] !== config['iss'] ) {
+		console.log(`iss ${authjwt['iss']} mismatch with ${config['iss']}`);
 		return false;
 	}
 
-	if( aafjwt['aud'] !== config['aud'] ) {
-		console.log(`aud ${aafjwt['aud']} mismatch with ${config['aud']}`);
+	if( authjwt['aud'] !== config['aud'] ) {
+		console.log(`aud ${authjwt['aud']} mismatch with ${config['aud']}`);
 		return false;
 	}
 
-	const nbf = new Date(aafjwt['nbf']);
-	const exp = new Date(aafjwt['exp']);
+	const nbf = new Date(authjwt['nbf']);
+	const exp = new Date(authjwt['exp']);
 	const now = new Date();
 
 	if( !! ( now > nbf && now < exp ) ) {
@@ -37,25 +43,34 @@ function check_jwt(aafjwt) {
 
 
 app.get('/', (req, res) => {
-	res.redirect(302, config['aafURL']);
+	res.redirect(302, config['authURL']);
 });
 
 
-app.get('/no', (req, res) => res.sendStatus(403) )
-
 app.post('/jwt', (req, res) => {
 
-	const aafjwt = jwt.decode(req.body['assertion'], config['secret']);
-	console.log(JSON.stringify(aafjwt, null, 8))
-	if( check_jwt(aafjwt) ) {
-		res.send('AAF authentication worked');
+	const authjwt = jwt.decode(req.body['assertion'], config['secret']);
+	console.log(JSON.stringify(authjwt, null, 8))
+	if( check_jwt(authjwt) ) {
+		console.log("AAF authentication was successful");
+		const atts = authjwt[config['attributes']];
+		req.session.uid = atts['mail'];
+		req.session.displayName = atts['displaybame'];
+		req.session.affiliation = atts['edupersonscopedaffiliation'];
+		res.redirect(config['success']);
 	} else {
+		console.log("AAF authentication failed");
 		res.sendStatus(403);
 	}
 
 })
 
 
+app.get('/logout', ( req, res ) => {
+	req.session.uid = '';
+	req.session.displayName = '';
+	req.session.affiliation = '';
+});
 
 
-app.listen(port, '0.0.0.0', () => console.log(`express-aaf listening on ${port}`));
+app.listen(config['port'], config['host'], () => console.log(`express-aaf listening on ${config['host']}:${config['port']}`));
